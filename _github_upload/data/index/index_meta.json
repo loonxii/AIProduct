@@ -1,0 +1,17 @@
+{
+  "_comment": "本文件是 build_index.py 的真实产出格式示例。为避免暴露语料规模, 计数字段已替换为占位值; 结构与参数为真实值。",
+  "n_docs": 0,
+  "n_terms": 0,
+  "nnz": 0,
+  "avgdl": 25.717,
+  "k1": 1.5,
+  "b": 0.75,
+  "n_cats": 16,
+  "tokenizer": "cjk-bigram+latin+digit",
+  "index_file": "index.npz",
+  "vocab_file": "vocab.txt",
+  "db": "corpus.db",
+  "built_at": "",
+  "elapsed_sec": 0,
+  "size_MB": 0
+}

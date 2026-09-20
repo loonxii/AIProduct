@@ -1,0 +1,10 @@
+# 商品描述文案助手 · 运行依赖
+# 安装: pip install -r requirements.txt
+# 训练相关依赖(torch/transformers/peft/trl)不在其中, 见 scripts/finetune_lora.py
+
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pydantic>=2.10
+httpx>=0.28
+python-multipart>=0.0.20
+numpy>=2.0

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>商品描述文案助手</title>
+<link rel="icon" href="/static/favicon.ico" />
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+
+<!-- ============ 进入页: 模型通道选择 ============ -->
+<div class="gate" id="gate" hidden>
+  <div class="gate-card">
+
+    <div class="gate-head">
+      <div class="brand-mark">文</div>
+      <div class="gate-head-text">
+        <h1>商品描述文案助手</h1>
+        <p>先选一个模型通道，再开始生成</p>
+      </div>
+    </div>
+
+    <div class="ch-grid" id="chGrid">
+      <button class="ch-card" data-id="ollama" type="button">
+        <span class="ch-top"><span class="ch-ico">本</span><span class="ch-name">本地 Ollama</span></span>
+        <span class="ch-desc">模型跑在自己机器上，商品数据不出内网</span>
+        <span class="ch-badge" id="badgeOllama"></span>
+      </button>
+      <button class="ch-card" data-id="api" type="button">
+        <span class="ch-top"><span class="ch-ico">API</span><span class="ch-name">模型 API</span></span>
+        <span class="ch-desc">DeepSeek / 通义 / Kimi / 智谱 / OpenAI 等任意 OpenAI 兼容接口</span>
+        <span class="ch-badge" id="badgeApi"></span>
+      </button>
+      <button class="ch-card" data-id="cloud" type="button" disabled>
+        <span class="ch-top"><span class="ch-ico">云</span><span class="ch-name">云服务</span></span>
+        <span class="ch-desc">平台免密钥模型，无需自备 Key</span>
+        <span class="ch-badge warn">未开通</span>
+      </button>
+    </div>
+
+    <!-- 模型 API 配置 -->
+    <div class="ch-config" id="cfgApi" hidden>
+      <div class="cfg-row">
+        <label for="apiBaseUrl">接口地址</label>
+        <input id="apiBaseUrl" type="text" spellcheck="false" placeholder="https://api.example.com/v1" />
+        <div class="hint">填到 <code>/v1</code> 为止，不要带 <code>/chat/completions</code></div>
+      </div>
+
+      <label class="key-mode">
+        <input type="radio" name="keyMode" id="keyModeServer" value="server" checked />
+        <span>沿用服务端已配置的 Key <small id="serverKeyHint"></small></span>
+      </label>
+      <label class="key-mode">
+        <input type="radio" name="keyMode" id="keyModeOwn" value="own" />
+        <span>我自己填 Key</span>
+      </label>
+
+      <div class="cfg-row" id="ownKeyRow" hidden>
+        <label for="apiKey">API Key</label>
+        <input id="apiKey" type="password" spellcheck="false" autocomplete="off" placeholder="sk-..." />
+      </div>
+
+      <div class="cfg-row">
+        <label for="apiModel">模型名</label>
+        <input id="apiModel" type="text" spellcheck="false" list="apiModelList" placeholder="模型名称" />
+        <datalist id="apiModelList"></datalist>
+        <div class="hint">测试连通后会列出该接口的可用模型</div>
+      </div>
+    </div>
+
+    <!-- 本地 Ollama 配置 -->
+    <div class="ch-config" id="cfgOllama" hidden>
+      <div class="cfg-row">
+        <label for="olBaseUrl">Ollama 地址</label>
+        <input id="olBaseUrl" type="text" spellcheck="false" placeholder="http://127.0.0.1:11434" />
+        <div class="hint">后端与 Ollama 同机时用 <code>127.0.0.1</code>；后端跑在 Docker 里则需用 <code>host.docker.internal</code></div>
+      </div>
+      <div class="cfg-row">
+        <label for="olModel">模型名</label>
+        <input id="olModel" type="text" spellcheck="false" list="olModelList" placeholder="qwen2.5:7b" />
+        <datalist id="olModelList"></datalist>
+        <div class="hint">测试连通后会列出本机已拉取的模型</div>
+      </div>
+    </div>
+
+    <!-- 云服务说明 -->
+    <div class="ch-config" id="cfgCloud" hidden>
+      <div class="cfg-note" id="cloudNote"></div>
+    </div>
+
+    <div class="gate-status" id="gateStatus" hidden></div>
+
+    <div class="gate-actions">
+      <label class="gate-auto">
+        <input type="checkbox" id="gateAuto" />
+        <span class="switch"></span>
+        <span>下次自动使用该通道，跳过此页</span>
+      </label>
+      <div class="gate-btns">
+        <button class="btn btn-ghost" id="gateForce" type="button" hidden>仍然进入</button>
+        <button class="btn btn-primary" id="gateEnter" type="button">
+          <span class="gbtn-label">测试并进入</span>
+          <span class="gbtn-spinner" hidden>·</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="gate-foot">
+      自己填的 API Key 只保存在本机浏览器（localStorage），每次生成时随请求发给本地后端临时使用，<b>不会写入服务端文件</b>。
+    </div>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">文</div>
+    <div class="brand-text">
+      <h1>商品描述文案助手</h1>
+      <p>检索百万级真实商品文案 · 生成贴合平台调性的卖点文案</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-chips" id="statusChips">
+      <span class="chip chip-wait" id="chipIndex"><i></i>索引加载中</span>
+      <span class="chip chip-wait" id="chipModel"><i></i>模型探测中</span>
+    </div>
+    <button class="btn btn-ghost" id="btnHistory">
+      <span>历史与收藏</span><span class="badge" id="favCount">0</span>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ============ 输入区 ============ -->
+  <section class="panel input-panel">
+    <div class="panel-head">
+      <h2>商品信息</h2>
+      <button class="link-btn" id="btnExample">试试示例</button>
+    </div>
+
+    <div class="field">
+      <label for="title">商品标题 <span class="req">必填</span></label>
+      <textarea id="title" rows="2" maxlength="200"
+        placeholder="例如：2024春秋新款男士连帽卫衣 宽松潮流纯棉外套"></textarea>
+      <div class="hint" id="titleHint">标题越具体（品类 + 材质 + 版型 + 人群），检索越准</div>
+    </div>
+
+    <div class="field">
+      <label for="spInput">卖点关键词 <span class="opt">选填 · 回车添加</span></label>
+      <div class="tag-input" id="spWrap">
+        <input id="spInput" type="text" maxlength="20" placeholder="如：纯棉、加绒、显瘦、情侣款" />
+      </div>
+      <div class="hint">填了卖点，生成时会强制体现，避免文案空泛</div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="audience">目标人群 <span class="opt">选填</span></label>
+        <input id="audience" type="text" maxlength="30" placeholder="如：20-30岁学生党" />
+      </div>
+      <div class="field">
+        <label for="priceInfo">价格 / 活动 <span class="opt">选填</span></label>
+        <input id="priceInfo" type="text" maxlength="40" placeholder="如：到手价 129 元" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>发布平台</label>
+      <div class="platform-grid" id="platformGrid"></div>
+    </div>
+
+    <div class="field">
+      <label>文案风格</label>
+      <div class="chip-row" id="styleRow"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>生成条数</label>
+        <div class="segmented" id="countSeg">
+          <button data-v="1">1</button><button data-v="2">2</button>
+          <button data-v="3" class="active">3</button><button data-v="4">4</button>
+          <button data-v="5">5</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>字数区间</label>
+        <div class="len-row">
+          <input id="minLen" type="number" min="10" max="400" placeholder="40" />
+          <span>–</span>
+          <input id="maxLen" type="number" min="10" max="500" placeholder="120" />
+        </div>
+      </div>
+    </div>
+
+    <label class="switch-row">
+      <input type="checkbox" id="useRefs" checked />
+      <span class="switch"></span>
+      <span class="switch-label">注入真实文案作为风格参照<small>关闭后大模型自由发挥，速度略快</small></span>
+    </label>
+
+    <button class="btn btn-primary btn-generate" id="btnGenerate">
+      <span class="btn-label">生成文案</span>
+      <span class="btn-spinner"></span>
+    </button>
+    <div class="gen-error" id="genError"></div>
+  </section>
+
+  <!-- ============ 结果区 ============ -->
+  <section class="panel result-panel">
+    <div class="panel-head">
+      <h2>生成结果</h2>
+      <div class="result-meta" id="resultMeta"></div>
+    </div>
+
+    <!-- 生成进度条: 由后端 SSE 的真实阶段与字符计数驱动 -->
+    <div class="gen-progress" id="genProgress" hidden>
+      <div class="gp-top">
+        <span class="gp-stage" id="gpStage">准备中</span>
+        <span class="gp-pct" id="gpPct">0%</span>
+      </div>
+      <div class="gp-track">
+        <div class="gp-bar" id="gpBar"></div>
+      </div>
+      <div class="gp-meta" id="gpMeta"></div>
+    </div>
+
+    <div class="empty-state" id="emptyState">
+      <div class="empty-art">文案</div>
+      <p>填写左侧商品信息，点击「生成文案」</p>
+      <small>系统会先从百万级真实文案中检索同类商品写法，再交给大模型生成</small>
+    </div>
+
+    <div class="warn-banner" id="warnBanner" hidden></div>
+
+    <div class="skeleton-wrap" id="skeleton" hidden>
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton short"></div>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="refs-block" id="refsBlock" hidden>
+      <button class="refs-toggle" id="refsToggle">
+        <span class="caret">▸</span>
+        <span>检索到的真实同类文案</span>
+        <span class="refs-count" id="refsCount">0</span>
+      </button>
+      <div class="refs-body" id="refsBody" hidden></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ 历史抽屉 ============ -->
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div class="tabs">
+      <button class="tab active" data-tab="all">历史</button>
+      <button class="tab" data-tab="fav">收藏</button>
+    </div>
+    <button class="icon-btn" id="btnCloseDrawer" title="关闭">✕</button>
+  </div>
+  <div class="drawer-search"><input id="historySearch" type="text" placeholder="搜索商品标题…" /></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+
+<div class="toast" id="toast" hidden></div>
+
+<!-- 云服务配置(部署到托管平台时由平台注入; 本地运行留空则自动回退到服务端通道) -->
+<script src="/static/cloud-config.js"></script>
+<script src="/static/gate.js"></script>
+<script src="/static/llm.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
