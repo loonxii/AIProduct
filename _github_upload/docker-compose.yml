@@ -1,0 +1,37 @@
+services:
+  copy-assistant:
+    build: .
+    image: copy-assistant:1.0.0
+    container_name: copy-assistant
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      # 语料库(corpus.db ~413MB) / 检索索引 / 应用库 / 微调数据集
+      - ./data:/app/data
+    environment:
+      # ---- 生成通道 ----
+      # auto: 有 LLM_API_KEY 用 openai 兼容接口, 没有则退回本机 Ollama
+      # openai / ollama / none
+      LLM_PROVIDER: "${LLM_PROVIDER:-auto}"
+      LLM_BASE_URL: "${LLM_BASE_URL:-https://api.deepseek.com/v1}"
+      LLM_API_KEY: "${LLM_API_KEY:-}"
+      LLM_MODEL: "${LLM_MODEL:-deepseek-chat}"
+      LLM_TEMPERATURE: "${LLM_TEMPERATURE:-1.0}"
+      LLM_MAX_TOKENS: "${LLM_MAX_TOKENS:-2048}"
+      LLM_TIMEOUT: "${LLM_TIMEOUT:-120}"
+      # 容器内访问宿主机 Ollama
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b}"
+      # ---- 检索参数 ----
+      TOP_K_TITLES: "${TOP_K_TITLES:-6}"
+      DESCS_PER_TITLE: "${DESCS_PER_TITLE:-4}"
+      MAX_REFERENCES: "${MAX_REFERENCES:-10}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=4).status==200 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 25s
